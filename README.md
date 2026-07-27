@@ -22,18 +22,33 @@ python3 -m http.server 4321
 - **Effects** and **Music** are independent toggles. A pill is filled with a
   lit dot when that setting is *in force*, empty when it isn't — the same rule
   as the speed picker, so nothing has to be inferred from a label.
+- The dropdown beside them picks the **track**. Choosing one turns the music on.
 
-All three choices are remembered between sessions.
+Every choice is remembered between sessions.
 
 Balloons that drift off-screen are gone; the garage tracks how many got away.
 
 ## Sound
 
 There are no audio files. Effects are short synthesised blips, and the music is
-generated as it plays: a slow four-chord loop in D with a pad, a bass note and
-a sparse pentatonic melody, scheduled a beat ahead of the clock so timing never
-depends on a JS timer. Browsers block audio until the page has been interacted
-with, so it starts on your first click.
+generated as it plays.
+
+Three tracks share one engine — a track is a chord loop, a written-out melody
+and a few tone settings, so adding a fourth is a data change:
+
+| Track | |
+| --- | --- |
+| **Drift** | 78 bpm, F major sevenths, long echo — the default |
+| **Sunny** | 104 bpm, brighter and busier, three notes to the beat |
+| **Nocturne** | 62 bpm, A minor, sparse, mostly pad and space |
+
+Each is a pad of detuned pairs, a bass, a stereo music-box arpeggio and the
+melody, all with an echo send. Notes are scheduled half a second ahead of the
+audio clock, so timing never rides on a JS timer. Switching track ducks out of
+one and into the other rather than cutting.
+
+Browsers block audio until the page has been interacted with, so playback
+starts on your first click.
 
 ## The cars
 

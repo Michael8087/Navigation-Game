@@ -28,6 +28,7 @@ const state = {
 const SPEED_KEY = 'navigation-game.speed';
 const SFX_KEY = 'navigation-game.sfx';
 const MUSIC_KEY = 'navigation-game.music';
+const TRACK_KEY = 'navigation-game.track';
 
 Garage.load();
 
@@ -520,6 +521,11 @@ for (const b of speedButtons) {
 
 const sfxButton = document.getElementById('btn-sfx');
 const musicButton = document.getElementById('btn-music');
+const trackPicker = document.getElementById('music-track');
+
+for (const track of TRACKS) {
+  trackPicker.add(new Option(track.name, track.id));
+}
 
 function setSfx(on) {
   state.sfx = on;
@@ -530,9 +536,16 @@ function setSfx(on) {
 function setMusic(on) {
   state.music = on;
   musicButton.setAttribute('aria-pressed', String(on));
+  trackPicker.dataset.muted = String(!on);
   remember(MUSIC_KEY, on);
   if (on) Music.start(ensureAudio());
   else Music.stop();
+}
+
+function setTrack(id) {
+  trackPicker.value = id;
+  Music.select(id);
+  remember(TRACK_KEY, id);
 }
 
 sfxButton.addEventListener('click', () => {
@@ -541,6 +554,12 @@ sfxButton.addEventListener('click', () => {
 });
 
 musicButton.addEventListener('click', () => setMusic(!state.music));
+
+trackPicker.addEventListener('change', e => {
+  setTrack(e.target.value);
+  /* picking a track is a clear request to hear it */
+  if (!state.music) setMusic(true);
+});
 
 /* Music is on by default but cannot sound until the page has been interacted
    with, so the first click anywhere starts it. */
@@ -571,8 +590,10 @@ resize();
 updateHud();
 setSpeed([1, 2, 5].includes(+saved(SPEED_KEY, 1)) ? +saved(SPEED_KEY, 1) : 1);
 setSfx(saved(SFX_KEY, 'true') !== 'false');
+setTrack(TRACKS.some(t => t.id === saved(TRACK_KEY, '')) ? saved(TRACK_KEY, '') : TRACKS[0].id);
 /* deliberately not setMusic(): it would try to start before any interaction */
 state.music = saved(MUSIC_KEY, 'true') !== 'false';
 musicButton.setAttribute('aria-pressed', String(state.music));
+trackPicker.dataset.muted = String(!state.music);
 spawn();
 requestAnimationFrame(frame);

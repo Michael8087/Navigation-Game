@@ -157,6 +157,25 @@ button.danger { background: #f6dcd6; color: #8c3a26; }
   box-shadow: 0 0 6px rgba(127, 224, 160, .9);
 }
 
+/* the track picker sits in the same pill row as the audio toggles */
+.seg select {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+  padding: 7px 24px 7px 11px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(22, 40, 61, .07) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2316283d' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 9px center / 9px;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+
+/* dimmed while the music is off — still usable, and picking one turns it on */
+.seg select[data-muted="true"] { opacity: .45; }
+
 #hint {
   position: fixed;
   left: 50%;
