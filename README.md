@@ -16,6 +16,9 @@ python3 -m http.server 4321
 
 - **Click** a balloon's envelope to pierce it. The pin's tip is the hit point.
 - **G** opens the garage.
+- **Standard / Fast / Crazy** set how quickly balloons drift — 1x, 2x and 3x,
+  with balloons sent up proportionally more often so the sky stays as full.
+  The descent stays slow at every setting. The choice is remembered.
 - Balloons that drift off-screen are gone; the garage tracks how many got away.
 
 ## The cars

@@ -31,6 +31,9 @@ class Balloon {
     this.bobAmp = 7 + Math.random() * 9;
     this.bobSpeed = 0.5 + Math.random() * 0.4;
     this.phase = Math.random() * Math.PI * 2;
+    /* own clock, wound on at the current speed setting — changing speed
+       mid-flight then shifts the bob's rate without jumping its phase */
+    this.age = 0;
     this.rise = (Math.random() - 0.5) * 5;
     this.tilt = 0;
 
@@ -64,12 +67,15 @@ class Balloon {
     this.swayAmp = 22 + Math.random() * 18;
   }
 
-  update(dt, t, bounds) {
+  /* `mul` is the speed setting; it drives the drift but never the descent —
+     a pierced balloon always comes down at its own gentle pace. */
+  update(dt, bounds, mul = 1) {
     if (this.state === 'flying') {
-      this.x += this.dir * this.speed * dt;
-      this.baseY += this.rise * dt;
-      this.y = this.baseY + Math.sin(t * this.bobSpeed + this.phase) * this.bobAmp;
-      this.tilt = Math.sin(t * this.bobSpeed * 0.7 + this.phase) * 0.05;
+      this.age += dt * mul;
+      this.x += this.dir * this.speed * mul * dt;
+      this.baseY += this.rise * mul * dt;
+      this.y = this.baseY + Math.sin(this.age * this.bobSpeed + this.phase) * this.bobAmp;
+      this.tilt = Math.sin(this.age * this.bobSpeed * 0.7 + this.phase) * 0.05;
 
       const margin = this.w * 1.4;
       if (this.x < -margin || this.x > bounds.w + margin) {

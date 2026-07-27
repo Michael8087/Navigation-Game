@@ -19,9 +19,12 @@ const state = {
   clouds: [],
   spawnIn: 0.6,
   pointer: { x: -999, y: -999, thrust: 0 },
+  speed: 1,
   sound: true,
   paused: false
 };
+
+const SPEED_KEY = 'navigation-game.speed';
 
 Garage.load();
 
@@ -142,6 +145,11 @@ function garageDoorX() {
 
 function slotX(i) {
   return garageDoorX() - 170 - i * 108;
+}
+
+/* however many slots fit to the left of the garage without running off-screen */
+function slotCount() {
+  return Math.max(1, Math.min(MAX_PARKED, Math.floor((garageDoorX() - 116) / 108)));
 }
 
 function drawSky() {
@@ -301,7 +309,7 @@ function prick(x, y) {
 function land(b) {
   dust(b.x, state.road);
   sfx.thud();
-  const targetSlot = state.parked.length < MAX_PARKED ? state.parked.length : null;
+  const targetSlot = state.parked.length < slotCount() ? state.parked.length : null;
   state.drivers.push({
     spec: b.car,
     x: b.x,
@@ -355,7 +363,9 @@ function frame(now) {
   if (!state.paused) {
     state.t += dt;
 
-    state.spawnIn -= dt;
+    /* faster balloons clear the screen sooner, so send them up proportionally
+       more often — the sky stays as full at Crazy as it does at Standard */
+    state.spawnIn -= dt * state.speed;
     if (state.spawnIn <= 0) {
       spawn();
       state.spawnIn = Math.max(1.9, 4.4 - Garage.stats.caught * 0.04) * (0.75 + Math.random() * 0.6);
@@ -367,7 +377,7 @@ function frame(now) {
     }
 
     for (const b of state.balloons) {
-      const event = b.update(dt, state.t, { w: state.w, ground: state.road });
+      const event = b.update(dt, { w: state.w, ground: state.road }, state.speed);
       if (event === 'escaped') { Garage.miss(); updateHud(); }
       if (event === 'landed') land(b);
     }
@@ -475,6 +485,24 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   updateHud();
 });
 
+const speedButtons = [...document.querySelectorAll('.speeds button')];
+
+function setSpeed(mul) {
+  state.speed = mul;
+  for (const b of speedButtons) {
+    b.setAttribute('aria-pressed', String(Number(b.dataset.speed) === mul));
+  }
+  try {
+    localStorage.setItem(SPEED_KEY, String(mul));
+  } catch {
+    /* private mode — the setting just won't survive a reload */
+  }
+}
+
+for (const b of speedButtons) {
+  b.addEventListener('click', () => setSpeed(Number(b.dataset.speed)));
+}
+
 document.getElementById('btn-sound').addEventListener('click', e => {
   state.sound = !state.sound;
   e.currentTarget.textContent = state.sound ? 'Sound on' : 'Sound off';
@@ -488,7 +516,17 @@ window.addEventListener('keydown', e => {
 
 /* ---------- go ---------- */
 
+function savedSpeed() {
+  try {
+    const saved = Number(localStorage.getItem(SPEED_KEY));
+    return [1, 2, 3].includes(saved) ? saved : 1;
+  } catch {
+    return 1;
+  }
+}
+
 resize();
 updateHud();
+setSpeed(savedSpeed());
 spawn();
 requestAnimationFrame(frame);
