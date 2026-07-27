@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Navigation Game — Balloon Garage</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<header id="hud">
+  <div class="stats">
+    <div class="stat"><span class="k" id="s-caught">0</span><span class="l">caught</span></div>
+    <div class="stat"><span class="k" id="s-escaped">0</span><span class="l">escaped</span></div>
+    <div class="stat"><span class="k" id="s-unique">0/0</span><span class="l">models</span></div>
+  </div>
+  <div class="actions">
+    <button id="btn-garage" type="button">Garage <kbd>G</kbd></button>
+    <button id="btn-sound" type="button" aria-pressed="true">Sound on</button>
+  </div>
+</header>
+
+<p id="hint">Prick a balloon with the pin — it sinks, and the car it was carrying drives home to your garage.</p>
+
+<div id="toasts" aria-live="polite"></div>
+
+<div id="garage" class="overlay" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Your garage</h2>
+      <button id="btn-close" type="button" aria-label="Close garage">&times;</button>
+    </div>
+    <p class="sheet-sub" id="garage-sub"></p>
+    <div id="garage-grid" class="grid"></div>
+    <div class="sheet-foot">
+      <button id="btn-reset" type="button" class="danger">Sell everything</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/cars.js"></script>
+<script src="js/balloons.js"></script>
+<script src="js/garage.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
