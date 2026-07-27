@@ -16,13 +16,16 @@
     <div class="stat"><span class="k" id="s-unique">0/0</span><span class="l">models</span></div>
   </div>
   <div class="actions">
-    <div class="speeds" role="group" aria-label="Balloon speed">
+    <div class="seg" role="group" aria-label="Balloon speed">
       <button type="button" data-speed="1" aria-pressed="true">Standard</button>
       <button type="button" data-speed="2" aria-pressed="false">Fast</button>
-      <button type="button" data-speed="3" aria-pressed="false">Crazy</button>
+      <button type="button" data-speed="5" aria-pressed="false">Crazy</button>
+    </div>
+    <div class="seg" role="group" aria-label="Audio">
+      <button id="btn-sfx" type="button" aria-pressed="true"><i class="led"></i>Effects</button>
+      <button id="btn-music" type="button" aria-pressed="true"><i class="led"></i>Music</button>
     </div>
     <button id="btn-garage" type="button">Garage <kbd>G</kbd></button>
-    <button id="btn-sound" type="button" aria-pressed="true">Sound on</button>
   </div>
 </header>
 
@@ -47,6 +50,7 @@
 <script src="js/cars.js"></script>
 <script src="js/balloons.js"></script>
 <script src="js/garage.js"></script>
+<script src="js/music.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

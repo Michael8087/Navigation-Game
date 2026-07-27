@@ -20,11 +20,14 @@ const state = {
   spawnIn: 0.6,
   pointer: { x: -999, y: -999, thrust: 0 },
   speed: 1,
-  sound: true,
+  sfx: true,
+  music: true,
   paused: false
 };
 
 const SPEED_KEY = 'navigation-game.speed';
+const SFX_KEY = 'navigation-game.sfx';
+const MUSIC_KEY = 'navigation-game.music';
 
 Garage.load();
 
@@ -59,9 +62,17 @@ window.addEventListener('resize', resize);
 
 let audio = null;
 
-function tone(type, freq, dur, gain = 0.14, slideTo = null) {
-  if (!state.sound) return;
+/* Browsers won't let a page make a sound before the user has interacted, so
+   the context is built on demand and resumed on the first click. */
+function ensureAudio() {
   if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === 'suspended') audio.resume();
+  return audio;
+}
+
+function tone(type, freq, dur, gain = 0.14, slideTo = null) {
+  if (!state.sfx) return;
+  ensureAudio();
   const osc = audio.createOscillator();
   const amp = audio.createGain();
   osc.type = type;
@@ -449,7 +460,7 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerdown', e => {
   state.pointer.x = e.clientX;
   state.pointer.y = e.clientY;
-  if (audio && audio.state === 'suspended') audio.resume();
+  wakeAudio();
   prick(e.clientX, e.clientY);
 });
 
@@ -485,29 +496,60 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   updateHud();
 });
 
-const speedButtons = [...document.querySelectorAll('.speeds button')];
+function remember(key, value) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    /* private mode — the setting just won't survive a reload */
+  }
+}
+
+const speedButtons = [...document.querySelectorAll('[data-speed]')];
 
 function setSpeed(mul) {
   state.speed = mul;
   for (const b of speedButtons) {
     b.setAttribute('aria-pressed', String(Number(b.dataset.speed) === mul));
   }
-  try {
-    localStorage.setItem(SPEED_KEY, String(mul));
-  } catch {
-    /* private mode — the setting just won't survive a reload */
-  }
+  remember(SPEED_KEY, mul);
 }
 
 for (const b of speedButtons) {
   b.addEventListener('click', () => setSpeed(Number(b.dataset.speed)));
 }
 
-document.getElementById('btn-sound').addEventListener('click', e => {
-  state.sound = !state.sound;
-  e.currentTarget.textContent = state.sound ? 'Sound on' : 'Sound off';
-  e.currentTarget.setAttribute('aria-pressed', String(state.sound));
+const sfxButton = document.getElementById('btn-sfx');
+const musicButton = document.getElementById('btn-music');
+
+function setSfx(on) {
+  state.sfx = on;
+  sfxButton.setAttribute('aria-pressed', String(on));
+  remember(SFX_KEY, on);
+}
+
+function setMusic(on) {
+  state.music = on;
+  musicButton.setAttribute('aria-pressed', String(on));
+  remember(MUSIC_KEY, on);
+  if (on) Music.start(ensureAudio());
+  else Music.stop();
+}
+
+sfxButton.addEventListener('click', () => {
+  ensureAudio();
+  setSfx(!state.sfx);
 });
+
+musicButton.addEventListener('click', () => setMusic(!state.music));
+
+/* Music is on by default but cannot sound until the page has been interacted
+   with, so the first click anywhere starts it. */
+function wakeAudio() {
+  ensureAudio();
+  if (state.music && !Music.playing) Music.start(audio);
+}
+
+window.addEventListener('pointerdown', wakeAudio, { once: true });
 
 window.addEventListener('keydown', e => {
   if (e.key === 'g' || e.key === 'G') overlay.hidden ? openGarage() : closeGarage();
@@ -516,17 +558,21 @@ window.addEventListener('keydown', e => {
 
 /* ---------- go ---------- */
 
-function savedSpeed() {
+function saved(key, fallback) {
   try {
-    const saved = Number(localStorage.getItem(SPEED_KEY));
-    return [1, 2, 3].includes(saved) ? saved : 1;
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value;
   } catch {
-    return 1;
+    return fallback;
   }
 }
 
 resize();
 updateHud();
-setSpeed(savedSpeed());
+setSpeed([1, 2, 5].includes(+saved(SPEED_KEY, 1)) ? +saved(SPEED_KEY, 1) : 1);
+setSfx(saved(SFX_KEY, 'true') !== 'false');
+/* deliberately not setMusic(): it would try to start before any interaction */
+state.music = saved(MUSIC_KEY, 'true') !== 'false';
+musicButton.setAttribute('aria-pressed', String(state.music));
 spawn();
 requestAnimationFrame(frame);

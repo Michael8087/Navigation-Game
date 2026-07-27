@@ -108,9 +108,10 @@ kbd {
 
 button.danger { background: #f6dcd6; color: #8c3a26; }
 
-/* segmented speed picker */
+/* Segmented controls. One rule everywhere: a filled pill is the setting that
+   is currently in force, so on/off is never a guess. */
 
-.speeds {
+.seg {
   display: flex;
   gap: 3px;
   padding: 3px;
@@ -119,7 +120,10 @@ button.danger { background: #f6dcd6; color: #8c3a26; }
   box-shadow: 0 3px 0 rgba(22, 40, 61, .12);
 }
 
-.speeds button {
+.seg button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 7px 12px;
   border-radius: 12px;
   background: transparent;
@@ -127,16 +131,31 @@ button.danger { background: #f6dcd6; color: #8c3a26; }
   opacity: .5;
 }
 
-.speeds button:hover { transform: none; box-shadow: none; opacity: .8; }
-.speeds button:active { transform: translateY(1px); }
+.seg button:hover { transform: none; box-shadow: none; opacity: .8; }
+.seg button:active { transform: translateY(1px); }
 
-.speeds button[aria-pressed="true"] {
+.seg button[aria-pressed="true"] {
   background: var(--ink);
   color: var(--paper);
   opacity: 1;
 }
 
-.speeds button[data-speed="3"][aria-pressed="true"] { background: #c4442f; }
+.seg button[data-speed="5"][aria-pressed="true"] { background: #c4442f; }
+
+/* a lit dot on the audio toggles, so "Music" filled-and-lit can't be misread
+   as a button that would turn music on */
+.led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(22, 40, 61, .28);
+  box-shadow: none;
+}
+
+.seg button[aria-pressed="true"] .led {
+  background: #7fe0a0;
+  box-shadow: 0 0 6px rgba(127, 224, 160, .9);
+}
 
 #hint {
   position: fixed;
@@ -310,6 +329,6 @@ button.danger { background: #f6dcd6; color: #8c3a26; }
   #hud { flex-wrap: wrap; gap: 8px; }
   .stat { min-width: 62px; }
   button { padding: 8px 11px; font-size: 12px; }
-  .speeds button { padding: 6px 9px; }
+  .seg button { padding: 6px 9px; gap: 5px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
