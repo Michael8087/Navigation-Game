@@ -33,8 +33,8 @@ const TRACKS = [
       { t: 24.0, midi: 67, dur: 1.4 }, { t: 25.5, midi: 70, dur: 0.8 }, { t: 26.5, midi: 74, dur: 1.2 },
       { t: 28.0, midi: 72, dur: 3.0 }
     ],
-    arpPerBeat: 2, arpOctave: 12, arpPeak: 0.028,
-    padPeak: 0.045, bassBeats: [0, 2], bassPeak: 0.12,
+    arpPerBeat: 2, arpOctave: 12, arpPeak: 0.032,
+    padPeak: 0.042, bassBeats: [0, 2], bassPeak: 0.085,
     melodyPeak: 0.075, echoFeedback: 0.32, echoWet: 0.4, tone: 2400
   },
 
@@ -63,8 +63,8 @@ const TRACKS = [
       { t: 24.0, midi: 74, dur: 0.9 }, { t: 25.0, midi: 71, dur: 0.9 }, { t: 26.0, midi: 67, dur: 1.6 },
       { t: 28.0, midi: 72, dur: 2.8 }
     ],
-    arpPerBeat: 3, arpOctave: 12, arpPeak: 0.026,
-    padPeak: 0.032, bassBeats: [0, 1.5, 2, 3.5], bassPeak: 0.1,
+    arpPerBeat: 3, arpOctave: 12, arpPeak: 0.03,
+    padPeak: 0.03, bassBeats: [0, 1.5, 2, 3.5], bassPeak: 0.075,
     melodyPeak: 0.07, echoFeedback: 0.22, echoWet: 0.26, tone: 3000
   },
 
@@ -93,8 +93,8 @@ const TRACKS = [
       { t: 26.0, midi: 72, dur: 2.5 },
       { t: 29.0, midi: 69, dur: 3.0 }
     ],
-    arpPerBeat: 1, arpOctave: 12, arpPeak: 0.03,
-    padPeak: 0.055, bassBeats: [0], bassPeak: 0.13,
+    arpPerBeat: 1, arpOctave: 12, arpPeak: 0.034,
+    padPeak: 0.05, bassBeats: [0], bassPeak: 0.09,
     melodyPeak: 0.07, echoFeedback: 0.4, echoWet: 0.5, tone: 1900
   }
 ];
@@ -123,9 +123,18 @@ const Music = {
     return this.track.progression.length * BEATS_PER_BAR;
   },
 
-  /* One voice. `send` is how much of it goes to the echo, `spread` its pan. */
+  /* One voice. `send` is how much of it goes to the echo, `spread` its pan.
+
+     `sustain` is what keeps a chord audible: an exponential ramp straight from
+     the peak to silence loses 90% of its level in the first third of the note,
+     so a pad written to last a bar is effectively gone by the halfway point
+     and the track pumps once per bar. Anything meant to be held gets a
+     sustain level and a release; plucks pass 0 and decay as before. */
   voice(midi, time, dur, opts) {
-    const { type = 'sine', peak = 0.1, attack = 0.02, detune = 0, send = 0, spread = 0 } = opts;
+    const {
+      type = 'sine', peak = 0.1, attack = 0.02, sustain = 0, release = 0.3,
+      detune = 0, send = 0, spread = 0
+    } = opts;
     const osc = this.ctx.createOscillator();
     const amp = this.ctx.createGain();
 
@@ -133,9 +142,14 @@ const Music = {
     osc.frequency.value = midiToFreq(midi);
     osc.detune.value = detune;
 
-    amp.gain.setValueAtTime(0.0001, time);
-    amp.gain.linearRampToValueAtTime(peak, time + attack);
-    amp.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    const g = amp.gain;
+    g.setValueAtTime(0.0001, time);
+    g.linearRampToValueAtTime(peak, time + attack);
+    if (sustain > 0) {
+      const rel = Math.min(dur * release, dur - attack - 0.02);
+      g.linearRampToValueAtTime(peak * sustain, time + dur - rel);
+    }
+    g.exponentialRampToValueAtTime(0.0001, time + dur);
     osc.connect(amp);
 
     let out = amp;
@@ -167,20 +181,29 @@ const Music = {
     const barLen = beatLen * BEATS_PER_BAR;
 
     if (beat === 0) {
-      /* the pad, each note doubled and pulled slightly apart for warmth */
+      /* the pad, each note doubled and pulled slightly apart for warmth. It
+         holds across the bar and overlaps the next one, so the chords join up
+         instead of leaving a hole in the second half of every bar. */
       for (const midi of chord.notes) {
         for (const detune of [-6, 6]) {
-          this.voice(midi, time, barLen * 1.1, { peak: t.padPeak, attack: barLen * 0.28, detune });
+          /* holds at level right up to the bar line, then releases into the
+             next chord's attack — the release must not start early or the bar
+             ends on a hole */
+          this.voice(midi, time, barLen * 1.18, {
+            peak: t.padPeak, attack: barLen * 0.16, sustain: 0.85, release: 0.15, detune
+          });
         }
       }
     }
 
     for (const b of t.bassBeats) {
       if (Math.floor(b) === beat && b % 1 === 0) {
-        this.voice(chord.bass, time, beatLen * 1.6, { type: 'triangle', peak: t.bassPeak, attack: 0.04 });
+        this.voice(chord.bass, time, beatLen * 1.9, {
+          type: 'triangle', peak: t.bassPeak, attack: 0.04, sustain: 0.4, release: 0.5
+        });
       } else if (Math.floor(b) === beat) {
-        this.voice(chord.bass + 12, time + (b % 1) * beatLen, beatLen * 0.7,
-          { type: 'triangle', peak: t.bassPeak * 0.6, attack: 0.03 });
+        this.voice(chord.bass + 12, time + (b % 1) * beatLen, beatLen * 0.8,
+          { type: 'triangle', peak: t.bassPeak * 0.6, attack: 0.03, sustain: 0.3, release: 0.5 });
       }
     }
 
@@ -197,7 +220,8 @@ const Music = {
       for (const n of t.melody) {
         if (n.t >= pos && n.t < pos + 1) {
           this.voice(n.midi, time + (n.t - pos) * beatLen, n.dur * beatLen, {
-            type: 'triangle', peak: t.melodyPeak, attack: 0.05, send: 0.4
+            type: 'triangle', peak: t.melodyPeak, attack: 0.05,
+            sustain: 0.62, release: 0.38, send: 0.4
           });
         }
       }
