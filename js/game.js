@@ -70,6 +70,14 @@ let audio = null;
 function ensureAudio() {
   if (!audio) {
     audio = new (window.AudioContext || window.webkitAudioContext)();
+
+    /* An iPhone puts Web Audio in the "ambient" session by default, which the
+       side ring/silent switch mutes — while Safari still shows the tab as
+       playing audio, so it looks like the page is broken. Claiming the
+       "playback" session is what a game with a soundtrack is meant to do, and
+       it plays through the switch. Not on older iOS, hence the guard. */
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+
     const nudge = audio.createBufferSource();
     nudge.buffer = audio.createBuffer(1, 1, 22050);
     nudge.connect(audio.destination);

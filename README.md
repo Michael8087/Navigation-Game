@@ -59,9 +59,14 @@ the tab resumes as well, and a scheduler that has fallen behind while the tab
 was backgrounded skips to the present instead of dumping every missed note out
 at once.
 
-One thing no page can do anything about: **on an iPhone the hardware
-ring/silent switch mutes Web Audio.** If the game is quiet on iOS and the
-Effects and Music pills are both lit, check that switch first.
+An iPhone puts Web Audio in the *ambient* audio session by default, which the
+side ring/silent switch mutes — while Safari still shows the tab as playing
+audio, so the page looks broken rather than muted. The game claims the
+*playback* session instead (`navigator.audioSession.type`), which is what a
+game with a soundtrack is for and plays through the switch. That needs iOS
+16.4 or newer; on anything older the switch really does have the last word.
+
+`audio-check.html` reports all of this on the device itself.
 
 ## The cars
 

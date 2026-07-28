@@ -109,6 +109,14 @@ document.getElementById('go').addEventListener('click', async () => {
   if (!ctx) ctx = new Ctor();
   line('info', 'State when created', ctx.state);
 
+  /* the reason a phone can show "playing" and stay silent */
+  if (navigator.audioSession) {
+    navigator.audioSession.type = 'playback';
+    line('ok', 'Audio session', `set to "${navigator.audioSession.type}" — plays through the silent switch`);
+  } else {
+    line('bad', 'Audio session control', 'not available — needs iOS 16.4 or newer. On this device the side ring/silent switch will mute the sound.');
+  }
+
   /* the unlock the game uses */
   const nudge = ctx.createBufferSource();
   nudge.buffer = ctx.createBuffer(1, 1, 22050);
@@ -155,9 +163,13 @@ document.getElementById('go').addEventListener('click', async () => {
   beep();
 
   note.hidden = false;
-  note.innerHTML = peak > 0.05
-    ? 'Everything the page can control is working — a two-note beep just played at full volume. If you did not hear it: on an <b>iPhone, the ring/silent switch mutes Web Audio</b> even when the media volume is up. Flick that switch and tap “Play the tone again”. Also check the volume is the <i>media</i> volume, not the ringer, and that no other app or Bluetooth device has grabbed the output.'
-    : 'The context says it is running but no signal is coming out, which is a browser-level problem. Tell me the make of phone and the browser.';
+  if (peak <= 0.05) {
+    note.textContent = 'The context says it is running but no signal is coming out, which is a browser-level problem. Tell me the make of phone and the browser.';
+  } else if (navigator.audioSession) {
+    note.innerHTML = 'A two-note beep just played at full volume, and this device supports the audio session control, so it should be audible <b>even with the silent switch on</b>. If you still heard nothing, turn the volume up with the side buttons <i>while this page is open</i> — that sets the media volume rather than the ringer — and tap “Play the tone again”.';
+  } else {
+    note.innerHTML = 'A two-note beep just played at full volume and everything the page can control is working. This device is too old to override the audio session, so: <b>flick the ring/silent switch on the side of the phone</b>, then tap “Play the tone again”.';
+  }
 });
 </script>
 </body>
