@@ -5,7 +5,9 @@
    figure and the tune, with an echo on everything. */
 
 const BEATS_PER_BAR = 4;
-const MUSIC_LEVEL = 0.15;
+/* Peaks around -18dBFS. It was a third of this, which is fine on a laptop and
+   inaudible on a phone speaker. */
+const MUSIC_LEVEL = 0.42;
 
 const TRACKS = [
   {
@@ -229,8 +231,20 @@ const Music = {
   },
 
   tick() {
+    const now = this.ctx.currentTime;
+
+    /* Phone browsers stall timers while the tab is in the background, so the
+       scheduler can come back seconds behind. Catching up beat by beat would
+       dump every missed note into the output at once, so skip to the present
+       instead. */
+    if (this.nextTime < now) {
+      const missed = Math.ceil((now - this.nextTime) / this.beat);
+      this.step += missed;
+      this.nextTime += missed * this.beat;
+    }
+
     /* schedule ahead of the clock, so timing never depends on the timer */
-    while (this.nextTime < this.ctx.currentTime + 0.5) {
+    while (this.nextTime < now + 0.5) {
       this.scheduleStep(this.step, this.nextTime);
       this.step++;
       this.nextTime += this.beat;

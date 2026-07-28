@@ -64,10 +64,18 @@ window.addEventListener('resize', resize);
 let audio = null;
 
 /* Browsers won't let a page make a sound before the user has interacted, so
-   the context is built on demand and resumed on the first click. */
+   the context is built on demand and resumed on the first gesture. iOS wants
+   something actually played from inside that gesture before it counts the
+   context as unlocked, hence the one-sample buffer. */
 function ensureAudio() {
-  if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-  if (audio.state === 'suspended') audio.resume();
+  if (!audio) {
+    audio = new (window.AudioContext || window.webkitAudioContext)();
+    const nudge = audio.createBufferSource();
+    nudge.buffer = audio.createBuffer(1, 1, 22050);
+    nudge.connect(audio.destination);
+    nudge.start(0);
+  }
+  if (audio.state !== 'running') audio.resume();
   return audio;
 }
 
@@ -562,13 +570,24 @@ trackPicker.addEventListener('change', e => {
 });
 
 /* Music is on by default but cannot sound until the page has been interacted
-   with, so the first click anywhere starts it. */
+   with, so any gesture starts it.
+
+   Deliberately not a one-shot listener: a phone browser can leave the context
+   suspended even after a gesture, and suspends it again whenever the tab goes
+   to the background or a call comes in. Every gesture therefore gets a go, and
+   so does coming back to the tab. Both calls are cheap and idempotent. */
 function wakeAudio() {
   ensureAudio();
-  if (state.music && !Music.playing) Music.start(audio);
+  if (state.music && !Music.playing && audio.state === 'running') Music.start(audio);
 }
 
-window.addEventListener('pointerdown', wakeAudio, { once: true });
+for (const event of ['pointerdown', 'touchend', 'keydown']) {
+  window.addEventListener(event, wakeAudio);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) wakeAudio();
+});
 
 window.addEventListener('keydown', e => {
   if (e.key === 'g' || e.key === 'G') overlay.hidden ? openGarage() : closeGarage();

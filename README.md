@@ -48,7 +48,20 @@ audio clock, so timing never rides on a JS timer. Switching track ducks out of
 one and into the other rather than cutting.
 
 Browsers block audio until the page has been interacted with, so playback
-starts on your first click.
+starts on your first tap or click.
+
+### On phones
+
+Mobile browsers are stricter, and the player accounts for it: the context is
+unlocked with a silent one-sample buffer inside the first gesture, every
+gesture gets another go at resuming rather than only the first, returning to
+the tab resumes as well, and a scheduler that has fallen behind while the tab
+was backgrounded skips to the present instead of dumping every missed note out
+at once.
+
+One thing no page can do anything about: **on an iPhone the hardware
+ring/silent switch mutes Web Audio.** If the game is quiet on iOS and the
+Effects and Music pills are both lit, check that switch first.
 
 ## The cars
 
