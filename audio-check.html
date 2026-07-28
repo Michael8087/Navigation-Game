@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio check — Navigation Game</title>
+<style>
+  body {
+    margin: 0; padding: 22px 18px 40px;
+    font: 15px/1.5 ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+    color: #16283d; background: #fbf7ef;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lead { margin: 0 0 20px; opacity: .65; font-size: 14px; }
+  button {
+    display: block; width: 100%; padding: 18px; margin: 0 0 14px;
+    font: inherit; font-size: 17px; font-weight: 700;
+    color: #fbf7ef; background: #16283d; border: 0; border-radius: 15px;
+  }
+  button:active { opacity: .8; }
+  button.second { background: #3f8fd0; }
+  ol { margin: 0; padding: 0; list-style: none; }
+  li {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 11px 13px; margin-bottom: 7px;
+    border-radius: 12px; background: #fff; border: 1px solid rgba(22,40,61,.12);
+  }
+  li .mark { font-weight: 700; flex: none; width: 1.3em; }
+  li.ok .mark { color: #2f8f52; }
+  li.bad .mark { color: #c4442f; }
+  li.info .mark { opacity: .4; }
+  li .what { font-weight: 650; }
+  li .val { opacity: .6; font-size: 13px; }
+  .note {
+    margin-top: 20px; padding: 14px; border-radius: 13px;
+    background: #fdf1d8; font-size: 14px;
+  }
+  code { font-family: ui-monospace, monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Audio check</h1>
+<p class="lead">Tap the button. If you hear nothing but every line below is green, the sound is reaching the speaker and something outside the browser is muting it.</p>
+
+<button id="go" type="button">Tap here to test the sound</button>
+<button id="again" class="second" type="button" hidden>Play the tone again</button>
+
+<ol id="report"></ol>
+
+<div class="note" id="note" hidden></div>
+
+<script>
+const report = document.getElementById('report');
+const note = document.getElementById('note');
+
+function line(status, what, val) {
+  const li = document.createElement('li');
+  li.className = status;
+  const mark = document.createElement('span');
+  mark.className = 'mark';
+  mark.textContent = status === 'ok' ? '✓' : status === 'bad' ? '✕' : '·';
+  const body = document.createElement('span');
+  const title = document.createElement('span');
+  title.className = 'what';
+  title.textContent = what;
+  body.appendChild(title);
+  if (val !== undefined) {
+    const v = document.createElement('div');
+    v.className = 'val';
+    v.textContent = val;
+    body.appendChild(v);
+  }
+  li.append(mark, body);
+  report.appendChild(li);
+  return li;
+}
+
+let ctx = null;
+
+function beep() {
+  const osc = ctx.createOscillator();
+  const amp = ctx.createGain();
+  const t = ctx.currentTime;
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(660, t);
+  osc.frequency.setValueAtTime(880, t + 0.25);
+  amp.gain.setValueAtTime(0.0001, t);
+  amp.gain.linearRampToValueAtTime(0.4, t + 0.02);
+  amp.gain.setValueAtTime(0.4, t + 0.45);
+  amp.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+  osc.connect(amp).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + 0.65);
+}
+
+document.getElementById('again').addEventListener('click', beep);
+
+document.getElementById('go').addEventListener('click', async () => {
+  report.textContent = '';
+  note.hidden = true;
+
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) {
+    line('bad', 'Web Audio is not supported', 'This browser cannot play the game’s sound at all.');
+    return;
+  }
+  line('ok', 'Web Audio supported', window.AudioContext ? 'AudioContext' : 'webkitAudioContext (older browser)');
+
+  if (!ctx) ctx = new Ctor();
+  line('info', 'State when created', ctx.state);
+
+  /* the unlock the game uses */
+  const nudge = ctx.createBufferSource();
+  nudge.buffer = ctx.createBuffer(1, 1, 22050);
+  nudge.connect(ctx.destination);
+  nudge.start(0);
+
+  try {
+    await ctx.resume();
+  } catch (err) {
+    line('bad', 'resume() was refused', String(err));
+  }
+
+  const running = ctx.state === 'running';
+  line(running ? 'ok' : 'bad', 'State after unlocking', ctx.state);
+  line('info', 'Output', `${ctx.sampleRate} Hz · ${ctx.destination.channelCount} channel(s)`);
+  line(ctx.createStereoPanner ? 'ok' : 'bad', 'Stereo panner',
+    ctx.createStereoPanner ? 'available' : 'missing — needs iOS 14.5 or newer');
+
+  if (!running) {
+    note.hidden = false;
+    note.textContent = 'The browser is holding the audio context suspended even after a tap. Tap the button once more — and tell me what this line says.';
+    return;
+  }
+
+  /* prove sound is actually being produced, by measuring our own output */
+  const meter = ctx.createAnalyser();
+  meter.fftSize = 2048;
+  const data = new Float32Array(meter.fftSize);
+  const probe = ctx.createOscillator();
+  const probeAmp = ctx.createGain();
+  probeAmp.gain.value = 0.3;
+  probe.frequency.value = 440;
+  probe.connect(probeAmp).connect(meter);
+  probe.start();
+  await new Promise(r => setTimeout(r, 120));
+  meter.getFloatTimeDomainData(data);
+  probe.stop();
+  let peak = 0;
+  for (const s of data) peak = Math.max(peak, Math.abs(s));
+  line(peak > 0.05 ? 'ok' : 'bad', 'Sound is being generated',
+    `measured level ${peak.toFixed(3)} (expected about 0.3)`);
+
+  document.getElementById('again').hidden = false;
+  beep();
+
+  note.hidden = false;
+  note.innerHTML = peak > 0.05
+    ? 'Everything the page can control is working — a two-note beep just played at full volume. If you did not hear it: on an <b>iPhone, the ring/silent switch mutes Web Audio</b> even when the media volume is up. Flick that switch and tap “Play the tone again”. Also check the volume is the <i>media</i> volume, not the ringer, and that no other app or Bluetooth device has grabbed the output.'
+    : 'The context says it is running but no signal is coming out, which is a browser-level problem. Tell me the make of phone and the browser.';
+});
+</script>
+</body>
+</html>

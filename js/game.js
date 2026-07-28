@@ -577,8 +577,20 @@ trackPicker.addEventListener('change', e => {
    to the background or a call comes in. Every gesture therefore gets a go, and
    so does coming back to the tab. Both calls are cheap and idempotent. */
 function wakeAudio() {
-  ensureAudio();
-  if (state.music && !Music.playing && audio.state === 'running') Music.start(audio);
+  const ctx = ensureAudio();
+
+  /* resume() is asynchronous: right after calling it the context still reads
+     "suspended", so testing the state here and giving up would miss the very
+     gesture that unlocked it. Wait for the promise instead. */
+  const startIfReady = () => {
+    if (state.music && !Music.playing && ctx.state === 'running') Music.start(ctx);
+  };
+
+  startIfReady();
+  if (ctx.state !== 'running') {
+    const pending = ctx.resume();
+    if (pending && pending.then) pending.then(startIfReady, () => {});
+  }
 }
 
 for (const event of ['pointerdown', 'touchend', 'keydown']) {

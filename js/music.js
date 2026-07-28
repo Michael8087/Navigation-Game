@@ -154,8 +154,10 @@ const Music = {
     g.exponentialRampToValueAtTime(0.0001, time + dur);
     osc.connect(amp);
 
+    /* StereoPannerNode only arrived in iOS 14.5; without the guard every note
+       on an older phone would throw and the track would be silent */
     let out = amp;
-    if (spread) {
+    if (spread && this.ctx.createStereoPanner) {
       const pan = this.ctx.createStereoPanner();
       pan.pan.value = spread;
       amp.connect(pan);
