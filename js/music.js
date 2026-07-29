@@ -110,6 +110,10 @@ const Music = {
   echoFeedback: null,
   echoWet: null,
   filter: null,
+  panL: null,
+  panR: null,
+  sendHalf: null,
+  sendLow: null,
   timer: null,
   swap: null,
   playing: false,
@@ -154,25 +158,33 @@ const Music = {
     g.exponentialRampToValueAtTime(0.0001, time + dur);
     osc.connect(amp);
 
-    /* StereoPannerNode only arrived in iOS 14.5; without the guard every note
-       on an older phone would throw and the track would be silent */
-    let out = amp;
-    if (spread && this.ctx.createStereoPanner) {
-      const pan = this.ctx.createStereoPanner();
-      pan.pan.value = spread;
-      amp.connect(pan);
-      out = pan;
+    /* Route arp notes through the permanent shared panners built once in
+       build() instead of allocating a new StereoPannerNode per note — on
+       mobile, two extra nodes per beat accumulate faster than GC clears them
+       and cause crackling. Falls back to centre when panners are absent
+       (iOS < 14.5). */
+    if (spread && this.panL) {
+      amp.connect(spread < 0 ? this.panL : this.panR);
+    } else {
+      amp.connect(this.master);
     }
-    out.connect(this.master);
 
+    /* Likewise route to the permanent echo-send buses instead of creating a
+       new GainNode per note for the tap. */
     if (send) {
-      const tap = this.ctx.createGain();
-      tap.gain.value = send;
-      out.connect(tap).connect(this.echo);
+      amp.connect(send >= 0.45 ? this.sendHalf : this.sendLow);
     }
 
     osc.start(time);
     osc.stop(time + dur + 0.05);
+
+    /* Disconnect the moment the oscillator finishes rather than waiting for
+       GC — leaving dead nodes connected to the audio graph is the primary
+       cause of crackling on iPhone. */
+    osc.addEventListener('ended', () => {
+      osc.disconnect();
+      amp.disconnect();
+    });
   },
 
   scheduleStep(step, time) {
@@ -265,6 +277,27 @@ const Music = {
     this.echo.connect(this.echoFeedback).connect(this.echo);
     this.echo.connect(this.echoWet).connect(this.master);
     this.master.connect(this.filter).connect(ctx.destination);
+
+    /* Permanent shared panners for the arp stereo spread — two nodes total for
+       the lifetime of the session instead of two per beat. Absent on iOS <
+       14.5, in which case arp plays centre and the rest of the track is fine. */
+    if (ctx.createStereoPanner) {
+      this.panL = ctx.createStereoPanner();
+      this.panR = ctx.createStereoPanner();
+      this.panL.pan.value = -0.45;
+      this.panR.pan.value =  0.45;
+      this.panL.connect(this.master);
+      this.panR.connect(this.master);
+    }
+
+    /* Permanent echo-send buses at the two levels voice() uses, eliminating a
+       GainNode allocation on every scheduled note. */
+    this.sendHalf = ctx.createGain();
+    this.sendHalf.gain.value = 0.5;
+    this.sendHalf.connect(this.echo);
+    this.sendLow = ctx.createGain();
+    this.sendLow.gain.value = 0.4;
+    this.sendLow.connect(this.echo);
   },
 
   /* the echo and the tone colour belong to the track, not the engine */
